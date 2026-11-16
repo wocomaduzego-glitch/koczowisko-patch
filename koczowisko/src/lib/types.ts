@@ -111,6 +111,10 @@ export interface AppSettings {
   resumePosition: boolean;
   autoSync: boolean;
   social: boolean;
+  profileTheme: "paper" | "night" | "forest" | "sunset";
+  profileAccent: "graphite" | "red" | "blue" | "green" | "violet";
+  profileVisibility: "public" | "friends" | "private";
+  profileShowActivity: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -120,6 +124,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   resumePosition: true,
   autoSync: true,
   social: true,
+  profileTheme: "paper",
+  profileAccent: "graphite",
+  profileVisibility: "public",
+  profileShowActivity: true,
 };
 
 export const ACCENTS: Record<string, { label: string; accent: string; accent2: string; on: string }> = {
@@ -140,7 +148,9 @@ export type View =
   | { name: "settings" }
   | { name: "playlist"; id: string }
   | { name: "profile"; username: string }
-  | { name: "group"; id: string };
+  | { name: "group"; id: string }
+  | { name: "friends" }
+  | { name: "admin" };
 
 export function fmtTime(sec: number): string {
   if (!sec || sec < 0 || !isFinite(sec)) return "0:00";

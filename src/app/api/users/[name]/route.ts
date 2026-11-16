@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { follows, playlists, tracks, users, playlistLikes, trackLikes } from "@/db/schema";
-import { and, count, eq } from "drizzle-orm";
+import { follows, playlists, tracks, users, playlistLikes, trackLikes, settings, friendRequests } from "@/db/schema";
+import { and, count, eq, or } from "drizzle-orm";
 import { currentUserId, getUserByUsername, publicUser } from "@/lib/auth";
 import { fetchTracksWithNames, listTracks, playlistToApi } from "@/lib/api";
 import { badgesForUser } from "@/lib/badges";
@@ -15,6 +15,18 @@ export async function GET(_req: Request, { params }: Ctx) {
     const { name } = await params;
     const u = await getUserByUsername(name);
     if (!u) return OK({ error: "Nie znaleziono użytkownika" }, { status: 404 });
+    const prefRow = (await db.select().from(settings).where(eq(settings.userId, u.id)).limit(1))[0];
+    const prefs = prefRow?.data ?? {};
+    const visibility = prefs.profileVisibility === "private" || prefs.profileVisibility === "friends" ? prefs.profileVisibility : "public";
+    if (me !== u.id && visibility === "private") return OK({ error: "Ten profil jest prywatny" }, { status: 403 });
+    if (me !== u.id && visibility === "friends") {
+      if (!me) return OK({ error: "Ten profil jest dostępny tylko dla znajomych" }, { status: 403 });
+      const friendship = await db.select({ senderId: friendRequests.senderId }).from(friendRequests).where(and(
+        eq(friendRequests.status, "accepted"),
+        or(and(eq(friendRequests.senderId, me), eq(friendRequests.receiverId, u.id)), and(eq(friendRequests.senderId, u.id), eq(friendRequests.receiverId, me)))
+      )).limit(1);
+      if (!friendship.length) return OK({ error: "Ten profil jest dostępny tylko dla znajomych" }, { status: 403 });
+    }
 
     const followers = (await db.select({ n: count() }).from(follows).where(eq(follows.followeeId, u.id)))[0]?.n ?? 0;
     const following = (await db.select({ n: count() }).from(follows).where(eq(follows.followerId, u.id)))[0]?.n ?? 0;
@@ -65,6 +77,7 @@ export async function GET(_req: Request, { params }: Ctx) {
       playlists: plsApi,
       tracks: tracksApi,
       badges: await badgesForUser(u.id),
+      profileStyle: { theme: prefs.profileTheme ?? "paper", accent: prefs.profileAccent ?? "graphite", showActivity: prefs.profileShowActivity !== false },
     });
   } catch (e) {
     console.error("[users:profile]", e);

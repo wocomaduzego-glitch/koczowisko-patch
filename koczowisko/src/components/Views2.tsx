@@ -712,6 +712,7 @@ interface ProfileData {
   playlists: PlaylistCardData[];
   tracks: Track[];
   badges: ProfileBadge[];
+  profileStyle?: { theme: string; accent: string; showActivity: boolean };
 }
 type PlaylistCardData = Parameters<typeof PlaylistCard>[0]["playlist"];
 
@@ -738,7 +739,7 @@ export function ProfileView({ username }: { username: string }) {
 
   return (
     <div className="space-y-8">
-      <div className="relative overflow-hidden rounded-2xl border border-[var(--line2)] bg-[var(--panel)] p-6 md:p-8">
+      <div className={`relative overflow-hidden rounded-2xl border p-6 md:p-8 ${data.profileStyle?.theme === "night" ? "text-white" : ""}`} style={{ backgroundColor: ({ paper: "#ffffff", night: "#292d34", forest: "#e4eee6", sunset: "#f2e5dc" } as Record<string, string>)[data.profileStyle?.theme ?? "paper"] ?? "#ffffff", borderColor: ({ graphite: "#535962", red: "#a33b3b", blue: "#356b9a", green: "#397653", violet: "#76549a" } as Record<string, string>)[data.profileStyle?.accent ?? "graphite"] ?? "#535962" }}>
         <SketchField />
         <div className="relative flex flex-col sm:flex-row gap-6 items-start">
           <Avatar user={u} size={96} className="ring-2 ring-[var(--line2)]" />
@@ -762,16 +763,34 @@ export function ProfileView({ username }: { username: string }) {
                   {I.edit({ size: 14 })} Edytuj profil
                 </Btn>
               ) : social && store.user ? (
-                <Btn
-                  kind={data.profile.followedByMe ? "ghost" : "primary"}
-                  onClick={async () => {
-                    await store.follow(u.id, !data.profile.followedByMe);
-                    load();
-                  }}
-                >
-                  {I.user({ size: 14 })} {data.profile.followedByMe ? "Obserwujesz" : "Obserwuj"}
-                </Btn>
+                <>
+                  <Btn
+                    kind={data.profile.followedByMe ? "ghost" : "primary"}
+                    onClick={async () => {
+                      await store.follow(u.id, !data.profile.followedByMe);
+                      load();
+                    }}
+                  >
+                    {I.user({ size: 14 })} {data.profile.followedByMe ? "Obserwujesz" : "Obserwuj"}
+                  </Btn>
+                  <Btn kind="soft" onClick={async () => {
+                    try {
+                      await api("/api/friends", { method: "POST", body: JSON.stringify({ action: "send", userId: u.id }) });
+                      store.toast("Zaproszenie do znajomych wysłane lub zaakceptowane.");
+                    } catch (e) { store.toast((e as Error).message, "err"); }
+                  }}>Dodaj do znajomych</Btn>
+                </>
               ) : null}
+              {!isMe && store.user && (
+                <Btn kind="ghost" onClick={async () => {
+                  const reason = window.prompt("Powód zgłoszenia profilu (5–500 znaków):");
+                  if (!reason) return;
+                  try {
+                    await api("/api/reports", { method: "POST", body: JSON.stringify({ targetType: "user", targetId: u.id, reason }) });
+                    store.toast("Zgłoszenie wysłane do administracji.");
+                  } catch (e) { store.toast((e as Error).message, "err"); }
+                }}>Zgłoś profil</Btn>
+              )}
               {!isMe && (
                 <Btn kind="soft" onClick={() => store.openModal({ type: "share", kind: "profile", id: u.username, name: u.displayName })}>
                   {I.share({ size: 14 })} Udostępnij profil
@@ -796,7 +815,7 @@ export function ProfileView({ username }: { username: string }) {
         )}
       </section>
 
-      {data.tracks.length > 0 && (
+      {data.profileStyle?.showActivity !== false && data.tracks.length > 0 && (
         <section>
           <SectionHead title="Dodane utwory" sub="Pliki wrzucone do biblioteki przez tego użytkownika" action={<PlayAllBtn tracks={data.tracks} label="Utwory użytkownika" />} />
           <div className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-1.5">
@@ -1006,6 +1025,32 @@ export function SettingsView() {
             ))}
           </div>
         </Row>
+      </Card>
+
+      {/* Personalizacja profilu */}
+      <Card title="Wygląd profilu" icon={I.user({ size: 18 })}>
+        <div className="space-y-4">
+          <div>
+            <div className="text-sm font-semibold mb-2">Tło profilu</div>
+            <div className="flex flex-wrap gap-2">
+              {([{key:"paper",label:"Papier",bg:"#f5f5f2"},{key:"night",label:"Noc",bg:"#272a30"},{key:"forest",label:"Las",bg:"#e4eee6"},{key:"sunset",label:"Zachód",bg:"#f2e5dc"}] as const).map(x => <button key={x.key} type="button" onClick={() => void store.saveSettings({profileTheme:x.key})} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${s.profileTheme===x.key?"ring-2 ring-[var(--accent)]":""}`} style={{background:x.bg,color:x.key==="night"?"#fff":"#25292e"}}>{x.label}</button>)}
+            </div>
+          </div>
+          <div>
+            <div className="text-sm font-semibold mb-2">Kolor akcentu profilu</div>
+            <div className="flex flex-wrap gap-2">
+              {([{key:"graphite",label:"Grafit",color:"#535962"},{key:"red",label:"Czerwony",color:"#a33b3b"},{key:"blue",label:"Niebieski",color:"#356b9a"},{key:"green",label:"Zielony",color:"#397653"},{key:"violet",label:"Fioletowy",color:"#76549a"}] as const).map(x => <button key={x.key} type="button" onClick={() => void store.saveSettings({profileAccent:x.key})} className={`rounded-full border px-3 py-2 text-xs font-semibold flex items-center gap-2 ${s.profileAccent===x.key?"ring-2 ring-[var(--accent)]":""}`}><span className="w-3 h-3 rounded-full" style={{background:x.color}}/>{x.label}</button>)}
+            </div>
+          </div>
+          <Row title="Prywatność profilu" sub="Wybierz, kto może przeglądać Twoją stronę">
+            <select className="rounded-lg border border-[var(--line2)] bg-[var(--bg)] px-3 py-2 text-xs" value={s.profileVisibility} onChange={e => void store.saveSettings({profileVisibility:e.target.value as AppSettings["profileVisibility"]})}>
+              <option value="public">Wszyscy</option><option value="friends">Znajomi</option><option value="private">Tylko ja</option>
+            </select>
+          </Row>
+          <Row title="Pokazuj ostatnią aktywność" sub="Kontroluje wyświetlanie sekcji aktywności na profilu">
+            <Toggle on={s.profileShowActivity} onChange={v => void store.saveSettings({profileShowActivity:v})} label="Aktywność" />
+          </Row>
+        </div>
       </Card>
 
       {/* Odtwarzanie */}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentUserId, getUserByUsername } from "@/lib/auth";
+import { requireCreatorAdmin } from "@/lib/permissions";
 import {
   BADGE_CATALOG,
   badgesForUser,
@@ -93,6 +94,16 @@ export async function POST(req: Request) {
       if (!target) return json({ error: `Nie ma użytkownika @${requestedUsername}` }, 404);
       targetId = target.id;
       targetUsername = target.username;
+    }
+
+    if (badge === "tworcy") {
+      const admin = await requireCreatorAdmin(me);
+      if (action === "add" && targetId !== me && !admin) {
+        return json({ error: "Tylko administrator może nadać odznakę Twórcy innej osobie" }, 403);
+      }
+      if (action === "remove" && (!admin || targetId === me)) {
+        return json({ error: "Odznakę Twórcy może odebrać tylko inny administrator" }, 403);
+      }
     }
 
     let message = "";

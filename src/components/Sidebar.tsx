@@ -8,6 +8,7 @@ const NAV: { view: View; label: string; icon: (p?: { size?: number; className?: 
   { view: { name: "search" }, label: "Wyszukaj", icon: I.search },
   { view: { name: "library" }, label: "Twoja Biblioteka", icon: I.library },
   { view: { name: "groups" }, label: "Grupy", icon: I.users },
+  { view: { name: "friends" }, label: "Znajomi", icon: I.users },
   { view: { name: "stats" }, label: "Statystyki", icon: I.chart },
   { view: { name: "lyrics" }, label: "Teksty", icon: I.book },
   { view: { name: "settings" }, label: "Ustawienia", icon: I.gear },
@@ -15,7 +16,7 @@ const NAV: { view: View; label: string; icon: (p?: { size?: number; className?: 
 
 export function Sidebar({ mobile, onNavigate }: { mobile?: boolean; onNavigate?: () => void }) {
   const store = useStore();
-  const { view, user, settings } = store;
+  const { view, user, settings, badges } = store;
   const active = (v: View) => view.name === v.name;
 
   return (
@@ -42,7 +43,7 @@ export function Sidebar({ mobile, onNavigate }: { mobile?: boolean; onNavigate?:
       </button>
 
       <nav className="px-3 space-y-0.5">
-        {NAV.filter((n) => !(n.view.name === "groups" && !settings.social)).map((n) => {
+        {[...NAV.filter((n) => !(n.view.name === "groups" && !settings.social) && !(n.view.name === "friends" && !user)), ...(badges.some((b) => b.badge === "tworcy") ? [{ view: { name: "admin" } as View, label: "Administracja", icon: I.gear }] : [])].map((n) => {
           const isActive = active(n.view);
           return (
             <button

@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { currentUserId } from "@/lib/auth";
 import { getSettings, saveSettings } from "@/lib/api";
 
-const ALLOWED = ["accent", "animations", "autoplayNext", "resumePosition", "autoSync", "social"];
+const ALLOWED = ["accent", "animations", "autoplayNext", "resumePosition", "autoSync", "social", "profileTheme", "profileAccent", "profileVisibility", "profileShowActivity"];
+const PROFILE_THEMES = ["paper", "night", "forest", "sunset"];
+const PROFILE_ACCENTS = ["graphite", "red", "blue", "green", "violet"];
+const PROFILE_VISIBILITY = ["public", "friends", "private"];
 
 export async function GET() {
   try {
