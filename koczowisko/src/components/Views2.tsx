@@ -712,6 +712,7 @@ interface ProfileData {
   playlists: PlaylistCardData[];
   tracks: Track[];
   badges: ProfileBadge[];
+  profileStyle?: { theme: string; accent: string; showActivity: boolean };
 }
 type PlaylistCardData = Parameters<typeof PlaylistCard>[0]["playlist"];
 
@@ -738,7 +739,7 @@ export function ProfileView({ username }: { username: string }) {
 
   return (
     <div className="space-y-8">
-      <div className="relative overflow-hidden rounded-2xl border border-[var(--line2)] bg-[var(--panel)] p-6 md:p-8">
+      <div className={`relative overflow-hidden rounded-2xl border p-6 md:p-8 ${data.profileStyle?.theme === "night" ? "text-white" : ""}`} style={{ backgroundColor: ({ paper: "#ffffff", night: "#292d34", forest: "#e4eee6", sunset: "#f2e5dc" } as Record<string, string>)[data.profileStyle?.theme ?? "paper"] ?? "#ffffff", borderColor: ({ graphite: "#535962", red: "#a33b3b", blue: "#356b9a", green: "#397653", violet: "#76549a" } as Record<string, string>)[data.profileStyle?.accent ?? "graphite"] ?? "#535962" }}>
         <SketchField />
         <div className="relative flex flex-col sm:flex-row gap-6 items-start">
           <Avatar user={u} size={96} className="ring-2 ring-[var(--line2)]" />
@@ -762,16 +763,34 @@ export function ProfileView({ username }: { username: string }) {
                   {I.edit({ size: 14 })} Edytuj profil
                 </Btn>
               ) : social && store.user ? (
-                <Btn
-                  kind={data.profile.followedByMe ? "ghost" : "primary"}
-                  onClick={async () => {
-                    await store.follow(u.id, !data.profile.followedByMe);
-                    load();
-                  }}
-                >
-                  {I.user({ size: 14 })} {data.profile.followedByMe ? "Obserwujesz" : "Obserwuj"}
-                </Btn>
+                <>
+                  <Btn
+                    kind={data.profile.followedByMe ? "ghost" : "primary"}
+                    onClick={async () => {
+                      await store.follow(u.id, !data.profile.followedByMe);
+                      load();
+                    }}
+                  >
+                    {I.user({ size: 14 })} {data.profile.followedByMe ? "Obserwujesz" : "Obserwuj"}
+                  </Btn>
+                  <Btn kind="soft" onClick={async () => {
+                    try {
+                      await api("/api/friends", { method: "POST", body: JSON.stringify({ action: "send", userId: u.id }) });
+                      store.toast("Zaproszenie do znajomych wysłane lub zaakceptowane.");
+                    } catch (e) { store.toast((e as Error).message, "err"); }
+                  }}>Dodaj do znajomych</Btn>
+                </>
               ) : null}
+              {!isMe && store.user && (
+                <Btn kind="ghost" onClick={async () => {
+                  const reason = window.prompt("Powód zgłoszenia profilu (5–500 znaków):");
+                  if (!reason) return;
+                  try {
+                    await api("/api/reports", { method: "POST", body: JSON.stringify({ targetType: "user", targetId: u.id, reason }) });
+                    store.toast("Zgłoszenie wysłane do administracji.");
+                  } catch (e) { store.toast((e as Error).message, "err"); }
+                }}>Zgłoś profil</Btn>
+              )}
               {!isMe && (
                 <Btn kind="soft" onClick={() => store.openModal({ type: "share", kind: "profile", id: u.username, name: u.displayName })}>
                   {I.share({ size: 14 })} Udostępnij profil
