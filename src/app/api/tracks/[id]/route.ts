@@ -16,6 +16,9 @@ export async function PATCH(req: Request, { params }: Ctx) {
     const me = await currentUserId();
     if (!me) return OK({ error: "Zaloguj się" }, { status: 401 });
     const { id } = await params;
+    const existing = (await db.select().from(tracks).where(eq(tracks.id, id)).limit(1))[0];
+    if (!existing) return OK({ error: "Nie znaleziono utworu" }, { status: 404 });
+    if (existing.addedBy !== me) return OK({ error: "Możesz edytować tylko własne utwory" }, { status: 403 });
     const body = await req.json();
     const patch: Record<string, unknown> = {};
     if (typeof body.duration === "number" && body.duration > 0) patch.duration = Math.round(body.duration);
