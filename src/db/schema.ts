@@ -19,6 +19,8 @@ export const users = pgTable("users", {
   avatar: text("avatar"),
   bio: text("bio").default(""),
   isSystem: boolean("is_system").default(false),
+  accountStatus: text("account_status").notNull().default("active"),
+  suspendedUntil: timestamp("suspended_until", { withTimezone: true }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -226,3 +228,42 @@ export const profileBadges = pgTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.badge] })]
 );
+
+
+export const friendRequests = pgTable("friend_requests", {
+  senderId: uuid("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  receiverId: uuid("receiver_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [primaryKey({ columns: [t.senderId, t.receiverId] }), index("friend_requests_receiver_idx").on(t.receiverId, t.status)]);
+
+export const directMessages = pgTable("direct_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  senderId: uuid("sender_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  receiverId: uuid("receiver_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  body: text("body").notNull(),
+  readAt: timestamp("read_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("direct_messages_pair_idx").on(t.senderId, t.receiverId, t.createdAt)]);
+
+export const contentReports = pgTable("content_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  reporterId: uuid("reporter_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  targetType: text("target_type").notNull(),
+  targetId: text("target_id").notNull(),
+  reason: text("reason").notNull(),
+  status: text("status").notNull().default("open"),
+  reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+}, (t) => [index("content_reports_status_idx").on(t.status, t.createdAt)]);
+
+export const moderationActions = pgTable("moderation_actions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  moderatorId: uuid("moderator_id").references(() => users.id, { onDelete: "set null" }),
+  targetUserId: uuid("target_user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  action: text("action").notNull(),
+  reason: text("reason").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("moderation_actions_target_idx").on(t.targetUserId, t.createdAt)]);
