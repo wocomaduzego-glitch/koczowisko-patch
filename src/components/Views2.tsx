@@ -1015,6 +1015,32 @@ export function SettingsView() {
         </Row>
       </Card>
 
+      {/* Personalizacja profilu */}
+      <Card title="Wygląd profilu" icon={I.user({ size: 18 })}>
+        <div className="space-y-4">
+          <div>
+            <div className="text-sm font-semibold mb-2">Tło profilu</div>
+            <div className="flex flex-wrap gap-2">
+              {([{key:"paper",label:"Papier",bg:"#f5f5f2"},{key:"night",label:"Noc",bg:"#272a30"},{key:"forest",label:"Las",bg:"#e4eee6"},{key:"sunset",label:"Zachód",bg:"#f2e5dc"}] as const).map(x => <button key={x.key} type="button" onClick={() => void store.saveSettings({profileTheme:x.key})} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${s.profileTheme===x.key?"ring-2 ring-[var(--accent)]":""}`} style={{background:x.bg,color:x.key==="night"?"#fff":"#25292e"}}>{x.label}</button>)}
+            </div>
+          </div>
+          <div>
+            <div className="text-sm font-semibold mb-2">Kolor akcentu profilu</div>
+            <div className="flex flex-wrap gap-2">
+              {([{key:"graphite",label:"Grafit",color:"#535962"},{key:"red",label:"Czerwony",color:"#a33b3b"},{key:"blue",label:"Niebieski",color:"#356b9a"},{key:"green",label:"Zielony",color:"#397653"},{key:"violet",label:"Fioletowy",color:"#76549a"}] as const).map(x => <button key={x.key} type="button" onClick={() => void store.saveSettings({profileAccent:x.key})} className={`rounded-full border px-3 py-2 text-xs font-semibold flex items-center gap-2 ${s.profileAccent===x.key?"ring-2 ring-[var(--accent)]":""}`}><span className="w-3 h-3 rounded-full" style={{background:x.color}}/>{x.label}</button>)}
+            </div>
+          </div>
+          <Row title="Prywatność profilu" sub="Wybierz, kto może przeglądać Twoją stronę">
+            <select className="rounded-lg border border-[var(--line2)] bg-[var(--bg)] px-3 py-2 text-xs" value={s.profileVisibility} onChange={e => void store.saveSettings({profileVisibility:e.target.value as AppSettings["profileVisibility"]})}>
+              <option value="public">Wszyscy</option><option value="friends">Znajomi</option><option value="private">Tylko ja</option>
+            </select>
+          </Row>
+          <Row title="Pokazuj ostatnią aktywność" sub="Kontroluje wyświetlanie sekcji aktywności na profilu">
+            <Toggle on={s.profileShowActivity} onChange={v => void store.saveSettings({profileShowActivity:v})} label="Aktywność" />
+          </Row>
+        </div>
+      </Card>
+
       {/* Odtwarzanie */}
       <Card title="Odtwarzanie" icon={I.music({ size: 18 })}>
         <Row title="Automatycznie następny utwór" sub="Przy końcu utworu od razu uruchamia kolejny z kolejki">
