@@ -58,7 +58,8 @@ export function randomGray(): string {
 
 /** Hasło do nadawania odznak. */
 export function verifyBadgePassword(input: string): boolean {
-  const expected = process.env.BADGE_ADMIN_PASSWORD || "123_Kocz!";
+  const expected = process.env.BADGE_ADMIN_PASSWORD;
+  if (!expected) return false;
   const a = Buffer.from(input, "utf8");
   const b = Buffer.from(expected, "utf8");
 
