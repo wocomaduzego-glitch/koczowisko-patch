@@ -1,0 +1,123 @@
+"use client";
+import React, { useCallback, useEffect, useState } from "react";
+import { api, useStore } from "./ctx";
+import { Avatar, Btn, Empty, Field, SectionHead } from "./ui";
+import type { UserLite } from "@/lib/types";
+
+type FriendData = { friends: UserLite[]; incoming: { id: string; user: UserLite }[]; outgoing: { id: string; user: UserLite }[] };
+type Message = { id: string; senderId: string; receiverId: string; body: string; readAt: string | null; createdAt: string };
+type AdminData = {
+  users: { id: string; username: string; displayName: string; accountStatus: string; suspendedUntil: string | null; createdAt: string }[];
+  reports: { id: string; reporterId: string; targetType: string; targetId: string; reason: string; status: string; createdAt: string }[];
+  actions: { id: string; targetUserId: string; action: string; reason: string; createdAt: string }[];
+};
+
+export function FriendsView() {
+  const store = useStore();
+  const [data, setData] = useState<FriendData | null>(null);
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<UserLite | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const load = useCallback(async () => {
+    try { setData(await api<FriendData>("/api/friends")); }
+    catch (e) { setError((e as Error).message); }
+  }, []);
+  useEffect(() => { if (store.user) void load(); }, [store.user?.id, load]);
+  const act = async (action: string, userId: string) => {
+    try { await api("/api/friends", { method: "POST", body: JSON.stringify({ action, userId }) }); await load(); }
+    catch (e) { setError((e as Error).message); }
+  };
+  const search = async () => {
+    const username = query.trim().replace(/^@/, "");
+    if (!username) return;
+    setBusy(true); setError("");
+    try {
+      const found = await api<{ profile: { user: UserLite } }>(`/api/users/${encodeURIComponent(username)}`);
+      if (found.profile.user.id === store.user?.id) throw new Error("To jest Twoje konto.");
+      await act("send", found.profile.user.id);
+      setQuery("");
+      store.toast("Zaproszenie wysłane lub zaakceptowane.");
+    } catch (e) { setError((e as Error).message); }
+    finally { setBusy(false); }
+  };
+  const openChat = async (user: UserLite) => {
+    setSelected(user);
+    try { const r = await api<{ messages: Message[] }>(`/api/messages?with=${encodeURIComponent(user.id)}`); setMessages(r.messages); }
+    catch (e) { setError((e as Error).message); setMessages([]); }
+  };
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selected || !draft.trim()) return;
+    try {
+      const r = await api<{ message: Message }>("/api/messages", { method: "POST", body: JSON.stringify({ userId: selected.id, body: draft.trim() }) });
+      setMessages(prev => [...prev, r.message]); setDraft("");
+    } catch (e) { setError((e as Error).message); }
+  };
+  if (!store.user) return <Empty title="Znajomi czekają na Ciebie" sub="Zaloguj się, aby wysyłać zaproszenia i rozmawiać." />;
+  return <div className="space-y-6">
+    <SectionHead title="Znajomi" sub="Zaproszenia, lista znajomych i prywatne rozmowy" />
+    <section className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-4 space-y-3">
+      <Field label="Dodaj znajomego" hint="Wpisz dokładny login użytkownika.">
+        <div className="flex gap-2"><input className="min-w-0 flex-1 rounded-lg border border-[var(--line2)] bg-[var(--bg)] px-3 py-2 text-sm" value={query} onChange={e => setQuery(e.target.value)} placeholder="@login" onKeyDown={e => { if(e.key==="Enter") void search(); }} /><Btn kind="primary" disabled={busy || !query.trim()} onClick={() => void search()}>{busy ? "Szukam…" : "Wyślij zaproszenie"}</Btn></div>
+      </Field>
+      {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
+    </section>
+    <div className="grid lg:grid-cols-2 gap-4">
+      <section className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-4 space-y-3">
+        <h3 className="font-display font-bold">Zaproszenia przychodzące ({data?.incoming.length ?? 0})</h3>
+        {(data?.incoming ?? []).map(x => <div key={x.id} className="flex items-center gap-3"><Avatar user={x.user} size={36}/><div className="min-w-0 flex-1"><b className="text-sm">{x.user.displayName}</b><div className="text-xs text-[var(--muted)]">@{x.user.username}</div></div><Btn kind="primary" onClick={() => void act("accept",x.id)}>Akceptuj</Btn><Btn kind="ghost" onClick={() => void act("decline",x.id)}>Odrzuć</Btn></div>)}
+        {!data?.incoming.length && <p className="text-sm text-[var(--muted)]">Brak nowych zaproszeń.</p>}
+      </section>
+      <section className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-4 space-y-3">
+        <h3 className="font-display font-bold">Wysłane zaproszenia ({data?.outgoing.length ?? 0})</h3>
+        {(data?.outgoing ?? []).map(x => <div key={x.id} className="flex items-center gap-3"><Avatar user={x.user} size={36}/><div className="min-w-0 flex-1"><b className="text-sm">{x.user.displayName}</b><div className="text-xs text-[var(--muted)]">@{x.user.username}</div></div><Btn kind="ghost" onClick={() => void act("remove",x.id)}>Anuluj</Btn></div>)}
+        {!data?.outgoing.length && <p className="text-sm text-[var(--muted)]">Brak wysłanych zaproszeń.</p>}
+      </section>
+    </div>
+    <section className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-4 space-y-3">
+      <h3 className="font-display font-bold">Twoi znajomi ({data?.friends.length ?? 0})</h3>
+      {(data?.friends ?? []).map(u => <div key={u.id} className="flex items-center gap-3"><Avatar user={u} size={40}/><button className="text-left min-w-0 flex-1" onClick={() => store.setView({name:"profile",username:u.username})}><b className="text-sm">{u.displayName}</b><div className="text-xs text-[var(--muted)]">@{u.username}</div></button><Btn kind="soft" onClick={() => void openChat(u)}>Wiadomość</Btn><Btn kind="ghost" onClick={() => void act("remove",u.id)}>Usuń</Btn></div>)}
+      {!data?.friends.length && <p className="text-sm text-[var(--muted)]">Nie masz jeszcze znajomych.</p>}
+    </section>
+    {selected && <section className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-4 space-y-3">
+      <div className="flex items-center justify-between"><h3 className="font-display font-bold">Rozmowa z {selected.displayName}</h3><Btn kind="ghost" onClick={() => setSelected(null)}>Zamknij</Btn></div>
+      <div className="max-h-72 min-h-24 overflow-y-auto space-y-2 rounded-lg bg-[var(--bg)] p-3">{messages.map(m => <div key={m.id} className={m.senderId === store.user?.id ? "text-right" : "text-left"}><span className="inline-block max-w-[85%] rounded-xl bg-[var(--bg2)] px-3 py-2 text-sm">{m.body}</span><div className="text-[10px] text-[var(--muted2)] mt-1">{new Date(m.createdAt).toLocaleString("pl-PL")}</div></div>)}</div>
+      <form onSubmit={sendMessage} className="flex gap-2"><input className="min-w-0 flex-1 rounded-lg border border-[var(--line2)] bg-[var(--bg)] px-3 py-2 text-sm" value={draft} onChange={e => setDraft(e.target.value)} maxLength={2000} placeholder="Napisz wiadomość…" /><Btn kind="primary" type="submit" disabled={!draft.trim()}>Wyślij</Btn></form>
+    </section>}
+  </div>;
+}
+
+export function AdminView() {
+  const store = useStore();
+  const [data, setData] = useState<AdminData | null>(null);
+  const [error, setError] = useState("");
+  const [reason, setReason] = useState("Naruszenie zasad społeczności");
+  const load = useCallback(async () => {
+    try { setData(await api<AdminData>("/api/admin")); setError(""); }
+    catch (e) { setError((e as Error).message); }
+  }, []);
+  useEffect(() => { void load(); }, [load]);
+  const action = async (payload: Record<string, unknown>) => {
+    try { await api("/api/admin", { method: "POST", body: JSON.stringify(payload) }); await load(); }
+    catch (e) { setError((e as Error).message); }
+  };
+  if (!store.badges.some(b => b.badge === "tworcy")) return <Empty title="Brak dostępu" sub="Panel administracyjny wymaga odznaki Twórcy Koczowiska." />;
+  return <div className="space-y-6">
+    <SectionHead title="Centrum administracji" sub="Zarządzanie zgłoszeniami, kontami i historią moderacji" action={<Btn kind="soft" onClick={() => void load()}>Odśwież</Btn>} />
+    {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
+    <section className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-4 space-y-3">
+      <h3 className="font-display font-bold">Zgłoszenia ({data?.reports.filter(r => r.status === "open").length ?? 0} otwartych)</h3>
+      {(data?.reports ?? []).map(r => <div key={r.id} className="border-b border-[var(--line)] py-3 last:border-0"><div className="flex flex-wrap justify-between gap-2"><b className="text-sm">{r.targetType} · {r.targetId}</b><span className="text-xs text-[var(--muted)]">{r.status} · {new Date(r.createdAt).toLocaleString("pl-PL")}</span></div><p className="text-sm mt-1">{r.reason}</p>{r.status === "open" && <div className="flex gap-2 mt-2"><Btn kind="primary" onClick={() => void action({action:"review-report",reportId:r.id,status:"reviewed"})}>Rozpatrz</Btn><Btn kind="ghost" onClick={() => void action({action:"review-report",reportId:r.id,status:"dismissed"})}>Odrzuć</Btn></div>}</div>)}
+      {!data?.reports.length && <p className="text-sm text-[var(--muted)]">Brak zgłoszeń.</p>}
+    </section>
+    <section className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-4 space-y-3">
+      <h3 className="font-display font-bold">Użytkownicy ({data?.users.length ?? 0})</h3>
+      <Field label="Powód blokady"><input className="w-full rounded-lg border border-[var(--line2)] bg-[var(--bg)] px-3 py-2 text-sm" value={reason} onChange={e => setReason(e.target.value)} maxLength={500}/></Field>
+      {(data?.users ?? []).map(u => <div key={u.id} className="flex flex-wrap items-center gap-2 border-b border-[var(--line)] py-2 last:border-0"><div className="min-w-0 flex-1"><b className="text-sm">{u.displayName}</b><div className="text-xs text-[var(--muted)]">@{u.username} · {u.accountStatus}</div></div>{u.accountStatus === "suspended" ? <Btn kind="soft" onClick={() => void action({action:"unsuspend",userId:u.id})}>Odblokuj</Btn> : <Btn kind="ghost" onClick={() => void action({action:"suspend",userId:u.id,reason,minutes:60})}>Blokuj 1h</Btn>}<Btn kind="ghost" onClick={() => void action({action:"suspend",userId:u.id,reason,minutes:0})}>Blokuj</Btn></div>)}
+    </section>
+    <section className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-4 space-y-2"><h3 className="font-display font-bold">Ostatnie działania moderacji</h3>{(data?.actions ?? []).map(a => <div key={a.id} className="text-sm border-b border-[var(--line)] py-2 last:border-0">{a.action} · {a.reason} <span className="text-xs text-[var(--muted)]">{new Date(a.createdAt).toLocaleString("pl-PL")}</span></div>)}{!data?.actions.length && <p className="text-sm text-[var(--muted)]">Brak zapisanych działań.</p>}</section>
+  </div>;
+}
