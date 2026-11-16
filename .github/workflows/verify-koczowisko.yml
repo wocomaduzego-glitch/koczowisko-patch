@@ -1,6 +1,7 @@
 name: Koczowisko checks
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - feature/admin-profiles-community
