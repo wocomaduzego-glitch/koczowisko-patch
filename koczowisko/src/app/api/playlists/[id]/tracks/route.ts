@@ -5,7 +5,8 @@ import { asc, desc, eq } from "drizzle-orm";
 import { currentUserId } from "@/lib/auth";
 import { playlistToApi } from "@/lib/api";
 
-const OK = NextResponse.json;
+export const dynamic = "force-dynamic";
+const OK = (body: unknown, init?: ResponseInit) => NextResponse.json(body, { ...init, headers: { "Cache-Control": "private, no-store", ...(init?.headers ?? {}) } });
 type Ctx = { params: Promise<{ id: string }> };
 
 async function getOwnedPlaylist(id: string, me: string | null) {

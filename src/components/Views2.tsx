@@ -845,82 +845,97 @@ function BadgeAdminCard({ Card }: { Card: (p: { title: string; icon: React.React
   const [unlocked, setUnlocked] = useState(false);
   const [catalog, setCatalog] = useState<BadgeDefinition[]>([]);
   const [target, setTarget] = useState(store.user?.username ?? "");
+  const [selectedBadges, setSelectedBadges] = useState<ProfileBadge[]>(store.badges ?? []);
+  const [selectedLoading, setSelectedLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    setTarget(store.user?.username ?? "");
+  }, [store.user?.id, store.user?.username]);
+
+  useEffect(() => {
+    if (!unlocked) return;
+    let active = true;
+    setSelectedLoading(true);
+    setSelectedBadges([]);
+    setError("");
+    const timer = window.setTimeout(() => {
+      const username = target.trim().replace(/^@/, "");
+      const url = username ? `/api/badges?username=${encodeURIComponent(username)}` : "/api/badges";
+      void api<{ badges?: ProfileBadge[]; mine?: ProfileBadge[] }>(url)
+        .then((response) => { if (active) setSelectedBadges(response.badges ?? response.mine ?? []); })
+        .catch((e) => { if (active) setError((e as Error).message); })
+        .finally(() => { if (active) setSelectedLoading(false); });
+    }, 300);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [target, unlocked]);
 
   const send = async (action: "unlock" | "add" | "remove", badge?: string) => {
     setError("");
     setBusy(action + (badge ?? ""));
     try {
-      const response = await api<{ catalog: BadgeDefinition[]; mine: ProfileBadge[]; message?: string }>("/api/badges", {
-        method: "POST",
-        body: JSON.stringify({ action, password, badge, username: action === "unlock" ? undefined : target.trim() }),
-      });
-      if (action === "unlock") { setCatalog(response.catalog); setUnlocked(true); }
+      const response = await api<{ catalog: BadgeDefinition[]; message?: string; targetBadges?: ProfileBadge[]; mine?: ProfileBadge[] }>(
+        "/api/badges",
+        { method: "POST", body: JSON.stringify({ action, password, badge, username: action === "unlock" ? undefined : target.trim() }) }
+      );
+      if (action === "unlock") {
+        setCatalog(response.catalog);
+        setUnlocked(true);
+      } else {
+        setSelectedBadges(response.targetBadges ?? []);
+        if (!target.trim() || target.trim().replace(/^@/, "").toLowerCase() === store.user?.username.toLowerCase()) {
+          await store.refreshBadges();
+        }
+      }
       if (response.message) store.toast(response.message);
-      await store.refreshBadges();
     } catch (e) {
       const message = (e as Error).message;
       setError(message);
       if (action === "unlock") setUnlocked(false);
-    } finally { setBusy(null); }
+    } finally {
+      setBusy(null);
+    }
   };
 
-  const mine = store.badges ?? [];
-  const has = (key: string) => mine.some((badge) => badge.badge === key);
+  const selectedUsername = target.trim().replace(/^@/, "") || store.user?.username || "użytkownik";
+  const selected = selectedBadges;
+  const has = (key: string) => selected.some((badge) => badge.badge === key);
 
-  return (
-    <Card title="Odznaki" icon={I.medal({ size: 18 })}>
-      <div data-testid="badge-admin">
-      {!store.user ? (
-        <p className="text-sm text-[var(--muted)]">Zaloguj się, aby odbierać i nadawać odznaki.</p>
-      ) : !unlocked ? (
+  return <Card title="Odznaki" icon={I.medal({ size: 18 })}>
+    <div data-testid="badge-admin">
+      {!store.user ? <p className="text-sm text-[var(--muted)]">Zaloguj się, aby odbierać i nadawać odznaki.</p> : !unlocked ? (
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); if (password) void send("unlock"); }}>
-          <p className="text-xs text-[var(--muted)]">
-            Odznaki nadaje się ręcznie. Wpisz hasło, aby odblokować panel ({catalog.length ? "" : "4 odznaki: OG, Twórcy Koczowiska, Kocz, Dziadzia"}).
-          </p>
-          <Field label="Hasło do odznak">
-            <input className={inputCls} type="password" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-          </Field>
+          <p className="text-xs text-[var(--muted)]">Odznaki nadaje się ręcznie lub automatycznie. Wpisz hasło, aby odblokować panel.</p>
+          <Field label="Hasło do odznak"><input className={inputCls} type="password" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></Field>
           {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
           <Btn kind="primary" type="submit" disabled={!password || busy !== null}>{busy === "unlock" ? "Sprawdzam…" : "Odblokuj odznaki"}</Btn>
         </form>
       ) : (
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-[var(--muted)]">Panel odblokowany. Każda odznaka dostaje własny, losowy odcień szarości.</p>
-            <Btn kind="ghost" onClick={() => { setUnlocked(false); setPassword(""); setError(""); }}>Zablokuj</Btn>
-          </div>
-          <Field label="Nadaj dla (nazwa użytkownika)" hint="Zostaw swoje, aby nadać odznakę sobie. Możesz też wpisać login innej osoby.">
+          <div className="flex items-center justify-between gap-3"><p className="text-xs text-[var(--muted)]">Panel odblokowany. Wybierz użytkownika, aby zobaczyć i zmienić jego odznaki.</p><Btn kind="ghost" onClick={() => { setUnlocked(false); setPassword(""); setError(""); }}>Zablokuj</Btn></div>
+          <Field label="Użytkownik" hint="Wpisz nazwę użytkownika; możesz też zostawić własny login.">
             <input className={inputCls} value={target} onChange={(e) => setTarget(e.target.value)} placeholder={store.user.username} />
           </Field>
-          <div className="grid sm:grid-cols-2 gap-2">
-            {catalog.map((badge) => {
-              const added = has(badge.key);
-              return (
-                <div key={badge.key} data-badge={badge.key} className="flex items-center gap-3 rounded-lg border border-[var(--line)] bg-[var(--bg2)] px-3 py-2.5">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold flex items-center gap-2">{badge.name}</div>
-                    <div className="text-[11px] text-[var(--muted)] truncate">{badge.hint}</div>
-                  </div>
-                  <Btn kind={added ? "ghost" : "soft"} disabled={busy !== null}
-                    onClick={() => void send(added ? "remove" : "add", badge.key)}>
-                    {busy === "add" + badge.key || busy === "remove" + badge.key ? "…" : added ? "Usuń" : "Dodaj"}
-                  </Btn>
-                </div>
-              );
-            })}
-          </div>
+          <div className="text-xs text-[var(--muted)]">Wybrany użytkownik: <strong>@{selectedUsername}</strong></div>
+          <div className="grid sm:grid-cols-2 gap-2">{catalog.map((badge) => {
+            const added = has(badge.key);
+            return <div key={badge.key} data-badge={badge.key} className="flex items-center gap-3 rounded-lg border border-[var(--line)] bg-[var(--bg2)] px-3 py-2.5">
+              <div className="min-w-0 flex-1"><div className="text-sm font-semibold">{badge.name}</div><div className="text-[11px] text-[var(--muted)] truncate">{badge.hint}</div></div>
+              <Btn kind={added ? "ghost" : "soft"} disabled={busy !== null || selectedLoading} onClick={() => void send(added ? "remove" : "add", badge.key)}>
+                {busy === "add" + badge.key || busy === "remove" + badge.key ? "…" : added ? "Usuń" : "Dodaj"}
+              </Btn>
+            </div>;
+          })}</div>
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-[var(--muted2)] mb-2">Moje odznaki</div>
-            {mine.length === 0 ? <p className="text-sm text-[var(--muted)]">Brak odznak.</p> : <div className="flex flex-wrap gap-2">{mine.map((badge) => <BadgeChip key={badge.badge} badge={badge} large />)}</div>}
+            <div className="text-xs font-semibold uppercase tracking-wider text-[var(--muted2)] mb-2">Odznaki użytkownika @{selectedUsername}</div>
+            {selectedLoading ? <p className="text-sm text-[var(--muted)]">Wczytywanie odznak…</p> : selected.length === 0 ? <p className="text-sm text-[var(--muted)]">Brak odznak.</p> : <div className="flex flex-wrap gap-2">{selected.map((badge) => <BadgeChip key={badge.badge} badge={badge} large />)}</div>}
           </div>
           {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
         </div>
       )}
-      </div>
-    </Card>
-  );
+    </div>
+  </Card>;
 }
 
 export function SettingsView() {
