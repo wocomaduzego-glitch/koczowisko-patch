@@ -815,7 +815,7 @@ export function ProfileView({ username }: { username: string }) {
         )}
       </section>
 
-      {data.tracks.length > 0 && (
+      {data.profileStyle?.showActivity !== false && data.tracks.length > 0 && (
         <section>
           <SectionHead title="Dodane utwory" sub="Pliki wrzucone do biblioteki przez tego użytkownika" action={<PlayAllBtn tracks={data.tracks} label="Utwory użytkownika" />} />
           <div className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-1.5">
