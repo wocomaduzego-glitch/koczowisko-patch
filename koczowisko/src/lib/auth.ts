@@ -47,7 +47,8 @@ export async function currentSession() {
     .innerJoin(users, eq(sessions.userId, users.id))
     .where(and(eq(sessions.tokenHash, digest(token)), gt(sessions.expiresAt, new Date())))
     .limit(1))[0];
-  return row ? { ...row, token } : null;
+  if (!row || row.user.accountStatus !== "active" || (row.user.suspendedUntil && row.user.suspendedUntil > new Date())) return null;
+  return { ...row, token };
 }
 
 export async function currentUserId(): Promise<string | null> {
