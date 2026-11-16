@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { currentUserId, getUserByUsername } from "@/lib/auth";\nimport { requireCreatorAdmin } from "@/lib/permissions";
+import { currentUserId, getUserByUsername } from "@/lib/auth";
+import { requireCreatorAdmin } from "@/lib/permissions";
 import {
   BADGE_CATALOG,
   badgesForUser,
