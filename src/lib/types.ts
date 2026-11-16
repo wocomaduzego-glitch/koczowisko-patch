@@ -140,7 +140,7 @@ export type View =
   | { name: "settings" }
   | { name: "playlist"; id: string }
   | { name: "profile"; username: string }
-  | { name: "group"; id: string };
+  | { name: "group"; id: string }\n  | { name: "friends" }\n  | { name: "admin" };
 
 export function fmtTime(sec: number): string {
   if (!sec || sec < 0 || !isFinite(sec)) return "0:00";
