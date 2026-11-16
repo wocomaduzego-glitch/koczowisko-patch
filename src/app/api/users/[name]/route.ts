@@ -76,7 +76,8 @@ export async function GET(_req: Request, { params }: Ctx) {
       },
       playlists: plsApi,
       tracks: tracksApi,
-      badges: await badgesForUser(u.id),\n      profileStyle: { theme: prefs.profileTheme ?? "paper", accent: prefs.profileAccent ?? "graphite", showActivity: prefs.profileShowActivity !== false },
+      badges: await badgesForUser(u.id),
+      profileStyle: { theme: prefs.profileTheme ?? "paper", accent: prefs.profileAccent ?? "graphite", showActivity: prefs.profileShowActivity !== false },
     });
   } catch (e) {
     console.error("[users:profile]", e);
