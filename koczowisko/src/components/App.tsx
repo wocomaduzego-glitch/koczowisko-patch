@@ -7,7 +7,7 @@ import { PlayerBar, SidePanel } from "./Player";
 import { ModalHost } from "./Modals";
 import { I, KoczMark } from "./ui";
 import { HomeView, LibraryView, PlaylistView, SearchView } from "./Views1";
-import { GroupsView, GroupDetailView, LyricsView, ProfileView, SettingsView, StatsView } from "./Views2";
+import { GroupsView, GroupDetailView, LyricsView, ProfileView, SettingsView, StatsView } from "./Views2";\nimport { AdminView, FriendsView } from "./CommunityViews";
 
 function ViewSwitch() {
   const store = useStore();
@@ -17,7 +17,7 @@ function ViewSwitch() {
     case "search": return <SearchView initial={v.initial ?? ""} />;
     case "library": return <LibraryView />;
     case "groups": return <GroupsView />;
-    case "group": return <GroupDetailView id={v.id} />;
+    case "group": return <GroupDetailView id={v.id} />;\n    case "friends": return <FriendsView />;\n    case "admin": return <AdminView />;
     case "stats": return <StatsView />;
     case "lyrics": return <LyricsView />;
     case "settings": return <SettingsView />;
