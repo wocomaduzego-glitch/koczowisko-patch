@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { follows, playlists, tracks, users, playlistLikes, trackLikes, settings, friendRequests } from "@/db/schema";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, or } from "drizzle-orm";
 import { currentUserId, getUserByUsername, publicUser } from "@/lib/auth";
 import { fetchTracksWithNames, listTracks, playlistToApi } from "@/lib/api";
 import { badgesForUser } from "@/lib/badges";
