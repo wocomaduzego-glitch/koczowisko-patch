@@ -217,11 +217,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } finally {
       if (version === refreshVersion.current) setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   const refreshBadges = useCallback(async () => {
-    try { const response = await api<{ mine: ProfileBadge[] }>("/api/badges"); setBadges(response.mine ?? []); }
-    catch { /* odznaki są dodatkiem i nie blokują aplikacji */ }
+    try {
+      const response = await api<{ mine: ProfileBadge[] }>("/api/badges");
+      setBadges(response.mine ?? []);
+    } catch { /* badges are cosmetic, never block the app */ }
   }, []);
 
   const refreshStats = useCallback(async () => {
@@ -991,6 +993,27 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       flushListen();
     };
   }, [flushListen]);
+
+  // Udostępnianie statusu „Słucha teraz” zalogowanym użytkownikom.
+  useEffect(() => {
+    if (!store.user || !current || !playing) {
+      if (store.user) api("/api/presence", { method: "DELETE" }).catch(() => {});
+      return;
+    }
+    const publish = () => api("/api/presence", {
+      method: "POST",
+      body: JSON.stringify({ trackId: current.id }),
+    }).catch(() => {});
+    publish();
+    const iv = setInterval(publish, 30_000);
+    return () => clearInterval(iv);
+  }, [store.user?.id, current?.id, playing]);
+
+  useEffect(() => {
+    return () => {
+      if (userRef.current) api("/api/presence", { method: "DELETE" }).catch(() => {});
+    };
+  }, []);
 
   // okresowe zapisywanie nasłuchu
   useEffect(() => {
