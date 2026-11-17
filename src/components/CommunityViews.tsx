@@ -13,6 +13,60 @@ type AdminData = {
   library: { id: string; title: string; artist: string; playlists: number; createdAt: string }[];
 };
 
+type NotificationItem = {
+  id: string; type: string; title: string; body: string; href: string | null;
+  readAt: string | null; createdAt: string; actorId: string | null;
+  actorName: string | null; actorUsername: string | null; actorAvatar: string | null;
+};
+
+export function NotificationsView() {
+  const store = useStore();
+  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [unread, setUnread] = useState(0);
+  const [error, setError] = useState("");
+  const load = useCallback(async () => {
+    try {
+      const result = await api<{ notifications: NotificationItem[]; unread: number }>("/api/notifications");
+      setItems(result.notifications);
+      setUnread(result.unread);
+      setError("");
+    } catch (e) { setError((e as Error).message); }
+  }, []);
+  useEffect(() => {
+    if (!store.user) return;
+    void load();
+    const timer = setInterval(() => void load(), 30_000);
+    return () => clearInterval(timer);
+  }, [load, store.user?.id]);
+  const markAll = async () => {
+    try { await api("/api/notifications", { method: "PATCH", body: JSON.stringify({ all: true }) }); await load(); }
+    catch (e) { setError((e as Error).message); }
+  };
+  const openItem = async (item: NotificationItem) => {
+    if (!item.readAt) await api("/api/notifications", { method: "PATCH", body: JSON.stringify({ id: item.id }) }).catch(() => {});
+    if (item.href === "friends") store.setView({ name: "friends" });
+    else if (item.href?.startsWith("track:")) store.setView({ name: "lyrics" });
+    else if (item.actorUsername) store.setView({ name: "profile", username: item.actorUsername });
+    void load();
+  };
+  if (!store.user) return <Empty title="Powiadomienia" sub="Zaloguj się, aby zobaczyć powiadomienia." />;
+  return <div className="space-y-5">
+    <SectionHead title="Powiadomienia" sub={unread ? unread + " nieprzeczytanych" : "Wszystko nadrobione"} action={<Btn kind="soft" disabled={!unread} onClick={() => void markAll()}>Oznacz wszystkie jako przeczytane</Btn>} />
+    {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
+    <section className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-2">
+      {items.map(item => <button key={item.id} type="button" onClick={() => void openItem(item)} className={"w-full text-left flex items-start gap-3 rounded-lg p-3 hover:bg-[var(--hover)] border-b border-[var(--line)] last:border-0 " + (item.readAt ? "opacity-70" : "bg-[var(--accent)]/5")}>
+        <Avatar user={{ id: item.actorId ?? "", username: item.actorUsername ?? "", displayName: item.actorName ?? "Koczowisko", avatar: item.actorAvatar ?? null, bio: "", isSystem: false }} size={38}/>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2"><b className="text-sm">{item.title}</b>{!item.readAt && <span className="w-2 h-2 rounded-full bg-[var(--accent)]"/>}</span>
+          <span className="block text-sm text-[var(--muted)] mt-0.5">{item.body}</span>
+          <span className="block text-[11px] text-[var(--muted2)] mt-1">{new Date(item.createdAt).toLocaleString("pl-PL")}</span>
+        </span>
+      </button>)}
+      {!items.length && <p className="text-sm text-[var(--muted)] text-center p-10">Na razie cisza. Nowe aktywności pojawią się tutaj.</p>}
+    </section>
+  </div>;
+}
+
 export function FriendsView() {
   const store = useStore();
   const [data, setData] = useState<FriendData | null>(null);
