@@ -716,7 +716,8 @@ interface ProfileData {
   playlists: PlaylistCardData[];
   tracks: Track[];
   badges: ProfileBadge[];
-  profileStyle?: { theme: string; accent: string; showActivity: boolean };
+  profileStyle?: { theme: string; accent: string; showActivity: boolean; banner?: string };
+  nowPlaying?: { id: string; title: string; artist: string; cover: string | null; updatedAt: string } | null;
 }
 type PlaylistCardData = Parameters<typeof PlaylistCard>[0]["playlist"];
 
@@ -743,7 +744,7 @@ export function ProfileView({ username }: { username: string }) {
 
   return (
     <div className="space-y-8">
-      <div className={`relative overflow-hidden rounded-2xl border p-6 md:p-8 ${data.profileStyle?.theme === "night" ? "text-white" : ""}`} style={{ backgroundColor: ({ paper: "#ffffff", night: "#292d34", forest: "#e4eee6", sunset: "#f2e5dc" } as Record<string, string>)[data.profileStyle?.theme ?? "paper"] ?? "#ffffff", borderColor: ({ graphite: "#535962", red: "#a33b3b", blue: "#356b9a", green: "#397653", violet: "#76549a" } as Record<string, string>)[data.profileStyle?.accent ?? "graphite"] ?? "#535962" }}>
+      <div className={`relative overflow-hidden rounded-2xl border p-6 md:p-8 ${data.profileStyle?.theme === "night" ? "text-white" : ""}`} style={{ backgroundColor: ({ paper: "#ffffff", night: "#292d34", forest: "#e4eee6", sunset: "#f2e5dc" } as Record<string, string>)[data.profileStyle?.theme ?? "paper"] ?? "#ffffff", borderColor: ({ graphite: "#535962", red: "#a33b3b", blue: "#356b9a", green: "#397653", violet: "#76549a" } as Record<string, string>)[data.profileStyle?.accent ?? "graphite"] ?? "#535962", backgroundImage: data.profileStyle?.banner ? `linear-gradient(90deg, rgba(20,20,24,.74), rgba(20,20,24,.25)), url("${data.profileStyle.banner}")` : undefined, backgroundSize: "cover", backgroundPosition: "center" }}>
         <SketchField />
         <div className="relative flex flex-col sm:flex-row gap-6 items-start">
           <Avatar user={u} size={96} className="ring-2 ring-[var(--line2)]" />
@@ -805,6 +806,21 @@ export function ProfileView({ username }: { username: string }) {
           </div>
         </div>
       </div>
+
+      {data.nowPlaying && (
+        <section className="rounded-xl border border-[var(--accent)]/30 bg-[var(--panel)] p-4 flex items-center gap-3">
+          <div className="relative shrink-0">
+            <Cover src={data.nowPlaying.cover} alt="" className="w-14 h-14 rounded-lg overflow-hidden" iconSize={18} />
+            <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[var(--panel)]" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Słucha teraz</div>
+            <div className="font-semibold truncate">{data.nowPlaying.title}</div>
+            <div className="text-xs text-[var(--muted)] truncate">{data.nowPlaying.artist}</div>
+          </div>
+          <span className="text-xs text-[var(--muted2)]">na żywo</span>
+        </section>
+      )}
 
       <section>
         <SectionHead title="Publiczne playlisty" sub={`${data.playlists.length} w bibliotece`} />
@@ -970,6 +986,18 @@ export function SettingsView() {
   const [brandBusy, setBrandBusy] = useState(false);
   const avatarRef = useRef<HTMLInputElement>(null);
   const brandRef = useRef<HTMLInputElement>(null);
+  const bannerRef = useRef<HTMLInputElement>(null);
+  const uploadProfileBanner = async (file?: File) => {
+    if (!file) return;
+    try {
+      const url = await store.uploadImage(file);
+      await store.saveSettings({ profileBanner: url });
+      store.toast("Tło profilu zostało zapisane.");
+    } catch (error) {
+      store.toast((error as Error).message, "err");
+    }
+  };
+
   const uploadBrand = async (file?: File) => {
     if (!file) return;
     const data = new FormData();
@@ -1048,6 +1076,16 @@ export function SettingsView() {
             <div className="flex flex-wrap gap-2">
               {([{key:"graphite",label:"Grafit",color:"#535962"},{key:"red",label:"Czerwony",color:"#a33b3b"},{key:"blue",label:"Niebieski",color:"#356b9a"},{key:"green",label:"Zielony",color:"#397653"},{key:"violet",label:"Fioletowy",color:"#76549a"}] as const).map(x => <button key={x.key} type="button" onClick={() => void store.saveSettings({profileAccent:x.key})} className={`rounded-full border px-3 py-2 text-xs font-semibold flex items-center gap-2 ${s.profileAccent===x.key?"ring-2 ring-[var(--accent)]":""}`}><span className="w-3 h-3 rounded-full" style={{background:x.color}}/>{x.label}</button>)}
             </div>
+          </div>
+          <div className="rounded-xl border border-[var(--line)] bg-[var(--bg2)] p-3 space-y-2">
+            <div className="text-sm font-semibold">Własne tło profilu</div>
+            {s.profileBanner && <div className="h-24 rounded-lg bg-cover bg-center border border-[var(--line2)]" style={{ backgroundImage: `url("${s.profileBanner}")` }} />}
+            <div className="flex flex-wrap gap-2">
+              <Btn kind="soft" onClick={() => bannerRef.current?.click()}>Wgraj baner</Btn>
+              {s.profileBanner && <Btn kind="ghost" onClick={() => void store.saveSettings({ profileBanner: "" })}>Usuń baner</Btn>}
+            </div>
+            <input ref={bannerRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={e => { void uploadProfileBanner(e.target.files?.[0]); e.target.value = ""; }} />
+            <p className="text-[11px] text-[var(--muted2)]">PNG, JPG lub WebP, maksymalnie 5 MB.</p>
           </div>
           <Row title="Prywatność profilu" sub="Wybierz, kto może przeglądać Twoją stronę">
             <select className="rounded-lg border border-[var(--line2)] bg-[var(--bg)] px-3 py-2 text-xs" value={s.profileVisibility} onChange={e => void store.saveSettings({profileVisibility:e.target.value as AppSettings["profileVisibility"]})}>
