@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { friendRequests, follows, users } from "@/db/schema";
 import { and, desc, eq, or } from "drizzle-orm";
 import { currentUserId, publicUser } from "@/lib/auth";
+import { createNotification } from "@/lib/notifications";
 
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "Cache-Control": "private, no-store" } });
 
@@ -45,15 +46,20 @@ export async function POST(req: Request) {
       if (existing?.senderId === targetId && existing.status === "pending") {
         await db.update(friendRequests).set({ status: "accepted" }).where(and(eq(friendRequests.senderId, targetId), eq(friendRequests.receiverId, me)));
         await db.insert(follows).values([{ followerId: me, followeeId: targetId }, { followerId: targetId, followeeId: me }]).onConflictDoNothing();
+        await createNotification({ userId: targetId, actorId: me, type: "friend_accepted", title: "Zaproszenie zaakceptowane", body: "Wasze zaproszenie do znajomych zostało zaakceptowane.", href: "friends" });
         return json({ ok: true, status: "accepted" });
       }
-      if (!existing) await db.insert(friendRequests).values({ senderId: me, receiverId: targetId });
+      if (!existing) {
+        await db.insert(friendRequests).values({ senderId: me, receiverId: targetId });
+        await createNotification({ userId: targetId, actorId: me, type: "friend_request", title: "Nowe zaproszenie", body: "Ktoś chce dodać Cię do znajomych.", href: "friends" });
+      }
       return json({ ok: true, status: "pending" });
     }
     if (action === "accept") {
       const updated = await db.update(friendRequests).set({ status: "accepted" }).where(and(eq(friendRequests.senderId, targetId), eq(friendRequests.receiverId, me), eq(friendRequests.status, "pending"))).returning();
       if (!updated.length) return json({ error: "Zaproszenie nie istnieje" }, 404);
       await db.insert(follows).values([{ followerId: me, followeeId: targetId }, { followerId: targetId, followeeId: me }]).onConflictDoNothing();
+      await createNotification({ userId: targetId, actorId: me, type: "friend_accepted", title: "Zaproszenie zaakceptowane", body: "Wasze zaproszenie do znajomych zostało zaakceptowane.", href: "friends" });
       return json({ ok: true });
     }
     if (action === "decline" || action === "remove") {
