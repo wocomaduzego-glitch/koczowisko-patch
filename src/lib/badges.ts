@@ -11,6 +11,7 @@ export const BADGE_CATALOG = [
   { key: "kocz", name: "Kocz", hint: "Legenda koczowiska." },
   { key: "dziadzia", name: "Dziadzia", hint: "Starszyzna kręgu." },
   { key: "tester", name: "Tester", hint: "Pomógł testować Koczowisko i zgłaszać błędy." },
+  { key: "zasluzony_czlonek", name: "Zasłużony członek Koczowiska", hint: "Wyróżnienie za szczególny wkład w społeczność." },
   { key: "pierwszy_utwor", name: "Pierwszy utwór", hint: "Dodał swój pierwszy utwór." },
   { key: "kolekcjoner", name: "Kolekcjoner", hint: "Dodał co najmniej 10 utworów." },
   { key: "pierwsza_playlista", name: "Pierwsza playlista", hint: "Utworzył swoją pierwszą playlistę." },
@@ -121,7 +122,7 @@ export async function grantBadge(
   badge: BadgeKey,
   grantedBy: string | null
 ) {
-  const color = randomGray();
+  const color = badge === "zasluzony_czlonek" ? "#EAB308" : randomGray();
 
   const inserted = await db
     .insert(profileBadges)
