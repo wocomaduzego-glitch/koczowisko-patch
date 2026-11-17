@@ -55,7 +55,7 @@ export function NotificationsView() {
     {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
     <section className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-2">
       {items.map(item => <button key={item.id} type="button" onClick={() => void openItem(item)} className={"w-full text-left flex items-start gap-3 rounded-lg p-3 hover:bg-[var(--hover)] border-b border-[var(--line)] last:border-0 " + (item.readAt ? "opacity-70" : "bg-[var(--accent)]/5")}>
-        <Avatar user={{ id: item.actorId ?? "", username: item.actorUsername ?? "", displayName: item.actorName ?? "Koczowisko", avatar: item.actorAvatar ?? null, bio: "", isSystem: false }} size={38}/>
+        <Avatar user={{ displayName: item.actorName ?? "Koczowisko", avatar: item.actorAvatar ?? null }} size={38}/>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2"><b className="text-sm">{item.title}</b>{!item.readAt && <span className="w-2 h-2 rounded-full bg-[var(--accent)]"/>}</span>
           <span className="block text-sm text-[var(--muted)] mt-0.5">{item.body}</span>
