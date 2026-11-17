@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { api, useStore } from "./ctx";
+import { api, usePlayer, useStore } from "./ctx";
 import type { CommentItem, LyricsDoc, Track } from "@/lib/types";
 import { fmtLong, fmtTime, timeAgo } from "@/lib/types";
 import { Avatar, BadgeDots, Btn, Cover, Field, I, IconBtn, inputCls, KoczMark, Modal, PlaylistCard, Toggle } from "./ui";
@@ -594,6 +594,7 @@ export function TrackDetailModal({ trackId }: { trackId: string }) {
 
 export function LyricsEditModal({ trackId }: { trackId: string }) {
   const store = useStore();
+  const player = usePlayer();
   const track = store.findTrack(trackId);
   const [doc, setDoc] = useState<LyricsDoc | null>(null);
   const [text, setText] = useState("");
@@ -655,9 +656,13 @@ export function LyricsEditModal({ trackId }: { trackId: string }) {
         </div>
       ) : (
         <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs text-[var(--muted)]">Wpisuj znaczniki czasu ręcznie lub wstaw aktualny czas odtwarzacza.</span>
+            {player.current?.id === trackId && <Btn kind="soft" onClick={() => setText(value => value + (value && !value.endsWith("\\n") ? "\\n" : "") + fmtTime(player.position) + " - ")}>{I.clock({ size: 14 })} Wstaw aktualny czas ({fmtTime(player.position)})</Btn>}
+          </div>
           <Field
             label="Tekst utworu"
-            hint="Jedna linijka w jednym wierszu. Opcjonalny znacznik czasu na początku (np. 0:04 - to jest linijka) tworzy tekst zsynchronizowany."
+            hint="Jedna linijka w jednym wierszu. Znaczniki 0:04 - tekst, [00:04.20] tekst lub [00:04][00:09] powtarzająca się linijka tworzą synchronizację."
           >
             <textarea
               className={`${inputCls} font-mono text-[13px] leading-relaxed`}
