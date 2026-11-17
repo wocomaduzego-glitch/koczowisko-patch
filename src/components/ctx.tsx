@@ -323,6 +323,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
+      await api("/api/presence", { method: "DELETE" }).catch(() => {});
       await api("/api/auth", { method: "POST", body: JSON.stringify({ action: "logout" }) });
     } catch {
       toast("Brak połączenia. Nie można potwierdzić wylogowania — spróbuj ponownie po odzyskaniu sieci.", "err");
