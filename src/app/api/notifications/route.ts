@@ -14,6 +14,7 @@ export async function GET() {
     const [rows, unreadRow] = await Promise.all([
       db.select({
         id: notifications.id,
+        actorId: notifications.actorId,
         type: notifications.type,
         title: notifications.title,
         body: notifications.body,
