@@ -1,5 +1,6 @@
 "use client";
-import { useStore } from "./ctx";
+import { useEffect, useState } from "react";
+import { api, useStore } from "./ctx";
 import { Avatar, Btn, I, KoczMark } from "./ui";
 import type { View } from "@/lib/types";
 
@@ -17,6 +18,15 @@ const NAV: { view: View; label: string; icon: (p?: { size?: number; className?: 
 export function Sidebar({ mobile, onNavigate }: { mobile?: boolean; onNavigate?: () => void }) {
   const store = useStore();
   const { view, user, settings, badges } = store;
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    if (!user) { setUnread(0); return; }
+    let alive = true;
+    const load = () => api<{ unread: number }>("/api/notifications").then(r => { if (alive) setUnread(r.unread); }).catch(() => {});
+    void load();
+    const timer = setInterval(load, 30_000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [user?.id]);
   const active = (v: View) => view.name === v.name;
 
   return (
@@ -49,6 +59,8 @@ export function Sidebar({ mobile, onNavigate }: { mobile?: boolean; onNavigate?:
             <button
               key={n.label}
               type="button"
+              aria-label={n.label}
+              aria-current={isActive ? "page" : undefined}
               onClick={() => {
                 store.setView(n.view);
                 onNavigate?.();
@@ -59,6 +71,7 @@ export function Sidebar({ mobile, onNavigate }: { mobile?: boolean; onNavigate?:
             >
               <span className={isActive ? "text-[var(--accent2)]" : ""}>{n.icon({ size: 19 })}</span>
               {n.label}
+              {n.view.name === "notifications" && unread > 0 && <span className="ml-auto rounded-full bg-[var(--accent)] text-[var(--on-accent)] text-[10px] min-w-5 h-5 px-1 flex items-center justify-center">{unread > 99 ? "99+" : unread}</span>}
               {isActive && <span className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: "var(--accent)" }} />}
             </button>
           );
