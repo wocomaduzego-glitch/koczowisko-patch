@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     const lines: LyricLine[] = [];
 
     const parseTimestamp = (value: string): number | null => {
-      const match = value.trim().match(/^(?:(\\d{1,2}):)?(\\d{1,2}):(\\d{2})(?:[.,](\\d{1,3}))?$/);
+      const match = value.trim().match(/^(?:(\d{1,2}):)?(\d{1,2}):(\d{2})(?:[.,](\d{1,3}))?$/);
       if (!match) return null;
       const hours = Number(match[1] ?? 0);
       const minutes = Number(match[2]);
@@ -62,16 +62,16 @@ export async function POST(req: Request) {
 
     for (const raw of rawLines) {
       if (typeof raw === "string") {
-        const lrc = raw.match(/^\\s*((?:\\[\\d{1,2}:\\d{2}(?:[.,]\\d{1,3})?\\])+)(.*)$/);
+        const lrc = raw.match(/^\s*((?:\[\d{1,2}:\d{2}(?:[.,]\d{1,3})?\])+)(.*)$/);
         if (lrc) {
-          const stamps = [...lrc[1].matchAll(/\\[(\\d{1,2}:\\d{2}(?:[.,]\\d{1,3})?)\\]/g)];
+          const stamps = [...lrc[1].matchAll(/\[(\d{1,2}:\d{2}(?:[.,]\d{1,3})?)\]/g)];
           for (const stamp of stamps) {
             const t = parseTimestamp(stamp[1]);
             if (t !== null) lines.push({ t, x: lrc[2].trim() });
           }
           continue;
         }
-        const timed = raw.match(/^\\s*((?:\\d{1,2}:)?\\d{1,2}:\\d{2}(?:[.,]\\d{1,3})?)\\s*[-–]?\\s*(.*)$/);
+        const timed = raw.match(/^\s*((?:\d{1,2}:)?\d{1,2}:\d{2}(?:[.,]\d{1,3})?)\s*[-–]?\s*(.*)$/);
         if (timed) {
           const t = parseTimestamp(timed[1]);
           if (t !== null) lines.push({ t, x: timed[2].trim() });
