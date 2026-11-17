@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { comments, tracks } from "@/db/schema";
+import { comments, tracks, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { currentUserId } from "@/lib/auth";
 import { commentsForTrack } from "@/lib/api";
+import { createNotification } from "@/lib/notifications";
 
 const OK = NextResponse.json;
 
@@ -34,7 +35,15 @@ export async function POST(req: Request) {
       const parent = (await db.select({ id: comments.id }).from(comments).where(eq(comments.id, parentId)).limit(1))[0];
       if (!parent) return OK({ error: "Nie znaleziono komentarza" }, { status: 404 });
     }
-    await db.insert(comments).values({ trackId, userId: me, parentId, body: text });
+    const [trackOwner] = await db.select({ addedBy: tracks.addedBy }).from(tracks).where(eq(tracks.id, trackId)).limit(1);
+    const inserted = (await db.insert(comments).values({ trackId, userId: me, parentId, body: text }).returning())[0];
+    if (parentId) {
+      const [parent] = await db.select({ userId: comments.userId }).from(comments).where(eq(comments.id, parentId)).limit(1);
+      if (parent) await createNotification({ userId: parent.userId, actorId: me, type: "comment_reply", title: "Odpowiedź na komentarz", body: text.slice(0, 120), href: "track:" + trackId });
+    } else if (trackOwner?.addedBy) {
+      await createNotification({ userId: trackOwner.addedBy, actorId: me, type: "track_comment", title: "Nowy komentarz do utworu", body: text.slice(0, 120), href: "track:" + trackId });
+    }
+    void inserted;
     return OK({ comments: await commentsForTrack(trackId) });
   } catch (e) {
     console.error("[comments:post]", e);
