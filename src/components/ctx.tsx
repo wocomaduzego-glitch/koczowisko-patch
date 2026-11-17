@@ -994,6 +994,27 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     };
   }, [flushListen]);
 
+  // Udostępnianie statusu „Słucha teraz” zalogowanym użytkownikom.
+  useEffect(() => {
+    if (!store.user || !current || !playing) {
+      if (store.user) api("/api/presence", { method: "DELETE" }).catch(() => {});
+      return;
+    }
+    const publish = () => api("/api/presence", {
+      method: "POST",
+      body: JSON.stringify({ trackId: current.id }),
+    }).catch(() => {});
+    publish();
+    const iv = setInterval(publish, 30_000);
+    return () => clearInterval(iv);
+  }, [store.user?.id, current?.id, playing]);
+
+  useEffect(() => {
+    return () => {
+      if (userRef.current) api("/api/presence", { method: "DELETE" }).catch(() => {});
+    };
+  }, []);
+
   // okresowe zapisywanie nasłuchu
   useEffect(() => {
     const iv = setInterval(() => {
