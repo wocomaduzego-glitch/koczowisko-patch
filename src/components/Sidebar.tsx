@@ -10,6 +10,7 @@ const NAV: { view: View; label: string; icon: (p?: { size?: number; className?: 
   { view: { name: "library" }, label: "Twoja Biblioteka", icon: I.library },
   { view: { name: "groups" }, label: "Grupy", icon: I.users },
   { view: { name: "friends" }, label: "Znajomi", icon: I.users },
+  { view: { name: "notifications" }, label: "Powiadomienia", icon: I.clock },
   { view: { name: "stats" }, label: "Statystyki", icon: I.chart },
   { view: { name: "lyrics" }, label: "Teksty", icon: I.book },
   { view: { name: "settings" }, label: "Ustawienia", icon: I.gear },
