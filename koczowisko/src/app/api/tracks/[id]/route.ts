@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { tracks } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { currentUserId } from "@/lib/auth";
+import { requireCreatorAdmin } from "@/lib/permissions";
 import { fetchTracksWithNames, trackToApi } from "@/lib/api";
 import { unlink } from "node:fs/promises";
 import path from "node:path";
@@ -39,7 +40,8 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     const { id } = await params;
     const row = (await db.select().from(tracks).where(eq(tracks.id, id)).limit(1))[0];
     if (!row) return OK({ error: "Nie znaleziono utworu" }, { status: 404 });
-    if (row.addedBy !== me) return OK({ error: "Możesz usunąć tylko swoje pliki" }, { status: 403 });
+    const isAdmin = await requireCreatorAdmin(me);
+    if (row.addedBy !== me && !isAdmin) return OK({ error: "Możesz usunąć tylko własne pliki" }, { status: 403 });
     await db.delete(tracks).where(eq(tracks.id, id));
     try {
       await unlink(path.join(process.cwd(), "uploads", row.path));
