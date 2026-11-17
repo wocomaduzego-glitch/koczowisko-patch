@@ -733,6 +733,12 @@ export function ProfileView({ username }: { username: string }) {
       .catch(() => setMissing(true));
   };
   useEffect(load, [username, store.user?.id, store.user?.displayName, store.user?.bio, store.user?.avatar]);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      api<ProfileData>(`/api/users/${encodeURIComponent(username)}`).then(setData).catch(() => {});
+    }, 30_000);
+    return () => clearInterval(timer);
+  }, [username]);
 
   const isMe = store.user?.username === username;
   const social = store.settings.social;
