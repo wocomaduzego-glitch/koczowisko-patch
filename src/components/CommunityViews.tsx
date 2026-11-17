@@ -45,7 +45,7 @@ export function NotificationsView() {
   const openItem = async (item: NotificationItem) => {
     if (!item.readAt) await api("/api/notifications", { method: "PATCH", body: JSON.stringify({ id: item.id }) }).catch(() => {});
     if (item.href === "friends") store.setView({ name: "friends" });
-    else if (item.href?.startsWith("track:")) store.setView({ name: "lyrics" });
+    else if (item.href?.startsWith("track:")) store.openModal({ type: "track-detail", trackId: item.href.slice(6) });
     else if (item.actorUsername) store.setView({ name: "profile", username: item.actorUsername });
     void load();
   };
