@@ -9,6 +9,7 @@ export const BADGE_CATALOG = [
   { key: "kocz", name: "Kocz", hint: "Legenda koczowiska." },
   { key: "dziadzia", name: "Dziadzia", hint: "Starszyzna kręgu." },
   { key: "tester", name: "Tester", hint: "Pomógł testować Koczowisko i zgłaszać błędy." },
+  { key: "zasluzony_czlonek", name: "Zasłużony członek Koczowiska", hint: "Wyróżnienie za szczególny wkład w społeczność." },
   { key: "pierwszy_utwor", name: "Pierwszy utwór", hint: "Dodaj swój pierwszy utwór do Koczowiska." },
   { key: "kolekcjoner", name: "Kolekcjoner", hint: "Dodaj co najmniej 10 utworów." },
   { key: "pierwsza_playlista", name: "Pierwsza playlista", hint: "Utwórz swoją pierwszą playlistę." },
@@ -59,7 +60,7 @@ export async function badgesForUsers(userIds: string[]): Promise<Map<string, Pro
   return map;
 }
 export async function grantBadge(userId: string, badge: BadgeKey, grantedBy: string | null) {
-  const color = randomGray();
+  const color = badge === "zasluzony_czlonek" ? "#EAB308" : randomGray();
   const inserted = await db.insert(profileBadges).values({ userId, badge, color, grantedBy }).onConflictDoNothing().returning();
   return inserted[0] ? { granted: true, color } : { granted: false, color: null };
 }
