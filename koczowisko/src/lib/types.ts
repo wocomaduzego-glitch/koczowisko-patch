@@ -115,6 +115,7 @@ export interface AppSettings {
   profileAccent: "graphite" | "red" | "blue" | "green" | "violet";
   profileVisibility: "public" | "friends" | "private";
   profileShowActivity: boolean;
+  profileBanner: string;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -128,6 +129,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   profileAccent: "graphite",
   profileVisibility: "public",
   profileShowActivity: true,
+  profileBanner: "",
 };
 
 export const ACCENTS: Record<string, { label: string; accent: string; accent2: string; on: string }> = {
@@ -150,6 +152,7 @@ export type View =
   | { name: "profile"; username: string }
   | { name: "group"; id: string }
   | { name: "friends" }
+  | { name: "notifications" }
   | { name: "admin" };
 
 export function fmtTime(sec: number): string {
