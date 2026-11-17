@@ -50,28 +50,45 @@ export async function POST(req: Request) {
       : String(body.lines || "").split("\n");
     const lines: LyricLine[] = [];
 
+    const parseTimestamp = (value: string): number | null => {
+      const match = value.trim().match(/^(?:(\\d{1,2}):)?(\\d{1,2}):(\\d{2})(?:[.,](\\d{1,3}))?$/);
+      if (!match) return null;
+      const hours = Number(match[1] ?? 0);
+      const minutes = Number(match[2]);
+      const seconds = Number(match[3]);
+      if (minutes > 59 || seconds > 59) return null;
+      return hours * 3600 + minutes * 60 + seconds;
+    };
+
     for (const raw of rawLines) {
       if (typeof raw === "string") {
-        const match = raw.match(/^\s*(\d{1,2}):(\d{2})\s*[-–]?\s*(.*)$/);
-        if (match) {
-          lines.push({
-            t: parseInt(match[1], 10) * 60 + parseInt(match[2], 10),
-            x: match[3].trim(),
-          });
+        const lrc = raw.match(/^\\s*((?:\\[\\d{1,2}:\\d{2}(?:[.,]\\d{1,3})?\\])+)(.*)$/);
+        if (lrc) {
+          const stamps = [...lrc[1].matchAll(/\\[(\\d{1,2}:\\d{2}(?:[.,]\\d{1,3})?)\\]/g)];
+          for (const stamp of stamps) {
+            const t = parseTimestamp(stamp[1]);
+            if (t !== null) lines.push({ t, x: lrc[2].trim() });
+          }
+          continue;
+        }
+        const timed = raw.match(/^\\s*((?:\\d{1,2}:)?\\d{1,2}:\\d{2}(?:[.,]\\d{1,3})?)\\s*[-–]?\\s*(.*)$/);
+        if (timed) {
+          const t = parseTimestamp(timed[1]);
+          if (t !== null) lines.push({ t, x: timed[2].trim() });
         } else if (raw.trim()) {
           lines.push({ x: raw.trim() });
         }
       } else if (
-        raw &&
-        typeof raw === "object" &&
-        "x" in raw &&
-        String((raw as LyricLine).x).trim()
+        raw && typeof raw === "object" && "x" in raw && String((raw as LyricLine).x).trim()
       ) {
-        lines.push({
-          t: (raw as LyricLine).t,
-          x: String((raw as LyricLine).x).trim(),
-        });
+        const candidate = Number((raw as LyricLine).t);
+        const t = Number.isFinite(candidate) && candidate >= 0 && candidate <= 86400 ? Math.floor(candidate) : undefined;
+        lines.push({ ...(t !== undefined ? { t } : {}), x: String((raw as LyricLine).x).trim() });
       }
+    }
+
+    for (const line of lines) {
+      if (!line.x || line.x.length > 500) return json({ error: "Każda linijka musi mieć 1–500 znaków" }, 400);
     }
 
     if (!lines.length) return json({ error: "Tekst jest pusty" }, 400);
@@ -85,7 +102,7 @@ export async function POST(req: Request) {
 
     if (!track) return json({ error: "Nie znaleziono utworu" }, 404);
 
-    const synced = lines.some((line) => typeof line.t === "number");
+    const synced = lines.length > 0 && lines.every((line) => typeof line.t === "number");
     const values = { authorId: me, synced, lines };
 
     // Pierwszy zapis może dodać każdy zalogowany użytkownik. Kolejne edycje
