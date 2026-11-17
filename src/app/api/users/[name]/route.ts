@@ -34,7 +34,7 @@ export async function GET(_req: Request, { params }: Ctx) {
       ? (await db.select({ n: count() }).from(follows).where(and(eq(follows.followerId, me), eq(follows.followeeId, u.id))))[0]?.n
       : 0;
 
-    const presence = await db.select({
+    const presence = prefs.profileShowActivity === false ? [] : await db.select({
       id: tracks.id,
       title: tracks.title,
       artist: tracks.artist,
