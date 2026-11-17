@@ -658,7 +658,7 @@ export function LyricsEditModal({ trackId }: { trackId: string }) {
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs text-[var(--muted)]">Wpisuj znaczniki czasu ręcznie lub wstaw aktualny czas odtwarzacza.</span>
-            {player.current?.id === trackId && <Btn kind="soft" onClick={() => setText(value => value + (value && !value.endsWith("\\n") ? "\\n" : "") + fmtTime(player.position) + " - ")}>{I.clock({ size: 14 })} Wstaw aktualny czas ({fmtTime(player.position)})</Btn>}
+            {player.current?.id === trackId && <Btn kind="soft" onClick={() => setText(value => value + (value && !value.endsWith("\n") ? "\n" : "") + fmtTime(player.position) + " - ")}>{I.clock({ size: 14 })} Wstaw aktualny czas ({fmtTime(player.position)})</Btn>}
           </div>
           <Field
             label="Tekst utworu"
