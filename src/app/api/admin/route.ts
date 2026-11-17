@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       if (!audioPath.startsWith(uploadRoot + path.sep)) return json({ error: "Nieprawidłowa ścieżka pliku" }, 400);
       await db.delete(tracks).where(eq(tracks.id, trackId));
       try { await unlink(audioPath); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") console.error("[admin:delete-track:file]", error); }
-      const coverMatch = track.cover?.match(/^\\/api\\/files\\/covers\\/([a-zA-Z0-9._-]+)$/);
+      const coverMatch = track.cover?.match(/^\/api\/files\/covers\/([a-zA-Z0-9._-]+)$/);
       if (coverMatch) {
         const coverPath = path.resolve(uploadRoot, "covers", coverMatch[1]);
         if (coverPath.startsWith(path.resolve(uploadRoot, "covers") + path.sep)) {
