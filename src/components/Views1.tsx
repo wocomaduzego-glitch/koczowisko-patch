@@ -260,6 +260,7 @@ export function PlaylistView({ id }: { id: string }) {
   if (missing) return <Empty title="Playlista niedostępna" sub="Być może została usunięta albo jest prywatna." action={<Btn onClick={() => store.setView({ name: "home" })}>Wróć na start</Btn>} />;
   if (!pl) return <div className="py-20 text-center text-[var(--muted)]">Wczytywanie playlisty…</div>;
   const isOwner = pl.isOwner;
+  const isCreatorAdmin = store.badges.some((badge) => badge.badge === "tworcy");
 
   const doReorder = () => {
     if (dragIdx === null || overIdx === null || dragIdx === overIdx || !order) return;
@@ -290,7 +291,7 @@ export function PlaylistView({ id }: { id: string }) {
               {tracks.length > 0 && <Btn kind="soft" onClick={() => player.play([...tracks].sort(() => Math.random() - 0.5), 0, pl.name)}>{I.shuffle({ size: 15 })} Losuj</Btn>}
               {store.settings.social && <IconBtn title={pl.liked ? "Wypolub playlistę" : "Polub playlistę"} onClick={() => store.togglePlaylistLike(pl.id)}><span className={pl.liked ? "text-[var(--accent)]" : ""}>{I.heart({ size: 19, filled: pl.liked })}</span></IconBtn>}
               <IconBtn title="Udostępnij" onClick={() => store.openModal({ type: "share", kind: "playlist", id: pl.id, name: pl.name })}>{I.share({ size: 18 })}</IconBtn>
-              {isOwner && <><Btn kind="ghost" onClick={() => store.openModal({ type: "playlist-edit", id: pl.id })}>{I.edit({ size: 14 })} Edytuj</Btn><Btn kind="soft" onClick={() => store.openModal({ type: "playlist-add", playlistId: pl.id })}>{I.plus({ size: 14 })} Dodaj utwory</Btn></>}
+              {isOwner && <><Btn kind="ghost" onClick={() => store.openModal({ type: "playlist-edit", id: pl.id })}>{I.edit({ size: 14 })} Edytuj</Btn><Btn kind="soft" onClick={() => store.openModal({ type: "playlist-add", playlistId: pl.id })}>{I.plus({ size: 14 })} Dodaj utwory</Btn></>}{isCreatorAdmin && <Btn kind="soft" onClick={() => { if (confirm(`Usunąć playlistę „${pl.name}”? Tej operacji nie można cofnąć.`)) void store.deletePlaylist(pl.id); }}>{I.trash({ size: 14 })} Usuń playlistę</Btn>}
             </div>
           </div>
         </div>
@@ -307,7 +308,7 @@ export function PlaylistView({ id }: { id: string }) {
                 onDragStart={() => { setOrder(tracks); setDragIdx(i); }}
                 onDragOver={(e) => { e.preventDefault(); if (overIdx !== i) setOverIdx(i); }}
                 onDrop={() => { doReorder(); setDragIdx(null); setOverIdx(null); }}
-                onRemove={isOwner ? () => { const next = tracks.filter((_, idx) => idx !== i); setOrder(next); void store.removeFromPlaylist(pl.id, t.id); } : undefined}
+                onRemove={isCreatorAdmin ? () => { if (confirm(`Usunąć utwór „${t.title}” z całego Koczowiska? Tej operacji nie można cofnąć.`)) void store.deleteTrack(t.id); } : isOwner ? () => { const next = tracks.filter((_, idx) => idx !== i); setOrder(next); void store.removeFromPlaylist(pl.id, t.id); } : undefined}
               />
             ))}
           </div>
