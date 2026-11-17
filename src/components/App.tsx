@@ -8,7 +8,7 @@ import { ModalHost } from "./Modals";
 import { I, KoczMark } from "./ui";
 import { HomeView, LibraryView, PlaylistView, SearchView } from "./Views1";
 import { GroupsView, GroupDetailView, LyricsView, ProfileView, SettingsView, StatsView } from "./Views2";
-import { AdminView, FriendsView } from "./CommunityViews";
+import { AdminView, FriendsView, NotificationsView } from "./CommunityViews";
 
 function ViewSwitch() {
   const store = useStore();
@@ -20,6 +20,7 @@ function ViewSwitch() {
     case "groups": return <GroupsView />;
     case "group": return <GroupDetailView id={v.id} />;
     case "friends": return <FriendsView />;
+    case "notifications": return <NotificationsView />;
     case "admin": return <AdminView />;
     case "stats": return <StatsView />;
     case "lyrics": return <LyricsView />;
