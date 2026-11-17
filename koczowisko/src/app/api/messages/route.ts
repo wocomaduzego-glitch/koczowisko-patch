@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { directMessages, friendRequests, users } from "@/db/schema";
 import { and, asc, eq, or } from "drizzle-orm";
 import { currentUserId, publicUser } from "@/lib/auth";
+import { createNotification } from "@/lib/notifications";
 
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "Cache-Control": "private, no-store" } });
 async function areFriends(a: string, b: string) {
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
     if (!peer || !message || message.length > 2000) return json({ error: "Wiadomość musi mieć 1–2000 znaków" }, 400);
     if (!(await areFriends(me, peer))) return json({ error: "Możesz pisać tylko do znajomych" }, 403);
     const row = (await db.insert(directMessages).values({ senderId: me, receiverId: peer, body: message }).returning())[0];
+    await createNotification({ userId: peer, actorId: me, type: "message", title: "Nowa wiadomość", body: message.slice(0, 120), href: "friends" });
     return json({ message: { id: row.id, senderId: row.senderId, receiverId: row.receiverId, body: row.body, readAt: null, createdAt: row.createdAt.toISOString() } }, 201);
   } catch (e) { console.error("[messages:post]", e); return json({ error: "Błąd serwera" }, 500); }
 }

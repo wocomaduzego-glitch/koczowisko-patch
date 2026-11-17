@@ -246,6 +246,27 @@ export const directMessages = pgTable("direct_messages", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => [index("direct_messages_pair_idx").on(t.senderId, t.receiverId, t.createdAt)]);
 
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+  type: text("type").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  href: text("href"),
+  readAt: timestamp("read_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("notifications_user_created_idx").on(t.userId, t.createdAt),
+  index("notifications_user_read_idx").on(t.userId, t.readAt),
+]);
+
+export const listeningPresence = pgTable("listening_presence", {
+  userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  trackId: uuid("track_id").notNull().references(() => tracks.id, { onDelete: "cascade" }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [index("listening_presence_track_idx").on(t.trackId)]);
+
 export const contentReports = pgTable("content_reports", {
   id: uuid("id").primaryKey().defaultRandom(),
   reporterId: uuid("reporter_id").notNull().references(() => users.id, { onDelete: "cascade" }),

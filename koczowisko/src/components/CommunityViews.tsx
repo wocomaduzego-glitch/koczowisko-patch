@@ -10,7 +10,62 @@ type AdminData = {
   users: { id: string; username: string; displayName: string; accountStatus: string; suspendedUntil: string | null; createdAt: string }[];
   reports: { id: string; reporterId: string; targetType: string; targetId: string; reason: string; status: string; createdAt: string }[];
   actions: { id: string; targetUserId: string; action: string; reason: string; createdAt: string }[];
+  library: { id: string; title: string; artist: string; playlists: number; createdAt: string }[];
 };
+
+type NotificationItem = {
+  id: string; type: string; title: string; body: string; href: string | null;
+  readAt: string | null; createdAt: string; actorId: string | null;
+  actorName: string | null; actorUsername: string | null; actorAvatar: string | null;
+};
+
+export function NotificationsView() {
+  const store = useStore();
+  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [unread, setUnread] = useState(0);
+  const [error, setError] = useState("");
+  const load = useCallback(async () => {
+    try {
+      const result = await api<{ notifications: NotificationItem[]; unread: number }>("/api/notifications");
+      setItems(result.notifications);
+      setUnread(result.unread);
+      setError("");
+    } catch (e) { setError((e as Error).message); }
+  }, []);
+  useEffect(() => {
+    if (!store.user) return;
+    void load();
+    const timer = setInterval(() => void load(), 30_000);
+    return () => clearInterval(timer);
+  }, [load, store.user?.id]);
+  const markAll = async () => {
+    try { await api("/api/notifications", { method: "PATCH", body: JSON.stringify({ all: true }) }); await load(); }
+    catch (e) { setError((e as Error).message); }
+  };
+  const openItem = async (item: NotificationItem) => {
+    if (!item.readAt) await api("/api/notifications", { method: "PATCH", body: JSON.stringify({ id: item.id }) }).catch(() => {});
+    if (item.href === "friends") store.setView({ name: "friends" });
+    else if (item.href?.startsWith("track:")) store.openModal({ type: "track-detail", trackId: item.href.slice(6) });
+    else if (item.actorUsername) store.setView({ name: "profile", username: item.actorUsername });
+    void load();
+  };
+  if (!store.user) return <Empty title="Powiadomienia" sub="Zaloguj się, aby zobaczyć powiadomienia." />;
+  return <div className="space-y-5">
+    <SectionHead title="Powiadomienia" sub={unread ? unread + " nieprzeczytanych" : "Wszystko nadrobione"} action={<Btn kind="soft" disabled={!unread} onClick={() => void markAll()}>Oznacz wszystkie jako przeczytane</Btn>} />
+    {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
+    <section className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-2">
+      {items.map(item => <button key={item.id} type="button" onClick={() => void openItem(item)} className={"w-full text-left flex items-start gap-3 rounded-lg p-3 hover:bg-[var(--hover)] border-b border-[var(--line)] last:border-0 " + (item.readAt ? "opacity-70" : "bg-[var(--accent)]/5")}>
+        <Avatar user={{ displayName: item.actorName ?? "Koczowisko", avatar: item.actorAvatar ?? null }} size={38}/>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2"><b className="text-sm">{item.title}</b>{!item.readAt && <span className="w-2 h-2 rounded-full bg-[var(--accent)]"/>}</span>
+          <span className="block text-sm text-[var(--muted)] mt-0.5">{item.body}</span>
+          <span className="block text-[11px] text-[var(--muted2)] mt-1">{new Date(item.createdAt).toLocaleString("pl-PL")}</span>
+        </span>
+      </button>)}
+      {!items.length && <p className="text-sm text-[var(--muted)] text-center p-10">Na razie cisza. Nowe aktywności pojawią się tutaj.</p>}
+    </section>
+  </div>;
+}
 
 export function FriendsView() {
   const store = useStore();
@@ -117,6 +172,14 @@ export function AdminView() {
       <h3 className="font-display font-bold">Użytkownicy ({data?.users.length ?? 0})</h3>
       <Field label="Powód blokady"><input className="w-full rounded-lg border border-[var(--line2)] bg-[var(--bg)] px-3 py-2 text-sm" value={reason} onChange={e => setReason(e.target.value)} maxLength={500}/></Field>
       {(data?.users ?? []).map(u => <div key={u.id} className="flex flex-wrap items-center gap-2 border-b border-[var(--line)] py-2 last:border-0"><div className="min-w-0 flex-1"><b className="text-sm">{u.displayName}</b><div className="text-xs text-[var(--muted)]">@{u.username} · {u.accountStatus}</div></div>{u.accountStatus === "suspended" ? <Btn kind="soft" onClick={() => void action({action:"unsuspend",userId:u.id})}>Odblokuj</Btn> : <Btn kind="ghost" onClick={() => void action({action:"suspend",userId:u.id,reason,minutes:60})}>Blokuj 1h</Btn>}<Btn kind="ghost" onClick={() => void action({action:"suspend",userId:u.id,reason,minutes:0})}>Blokuj</Btn></div>)}
+    </section>
+    <section className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2"><h3 className="font-display font-bold">Biblioteka utworów ({data?.library.length ?? 0})</h3><span className="text-xs text-[var(--muted)]">Usuwanie trwałe</span></div>
+      {(data?.library ?? []).map(track => <div key={track.id} className="flex flex-wrap items-center gap-2 border-b border-[var(--line)] py-2 last:border-0">
+        <div className="min-w-0 flex-1"><b className="text-sm block truncate">{track.title}</b><span className="text-xs text-[var(--muted)]">{track.artist} · {track.playlists} playlist</span></div>
+        <Btn kind="danger" onClick={() => { if (window.confirm(`Trwale usunąć „${track.title}” z biblioteki i wszystkich playlist? Tej operacji nie można cofnąć.`)) void action({ action: "delete-track", trackId: track.id }); }}>Usuń trwale</Btn>
+      </div>)}
+      {!data?.library.length && <p className="text-sm text-[var(--muted)]">Biblioteka jest pusta.</p>}
     </section>
     <section className="rounded-xl border border-[var(--line)] bg-[var(--panel)] p-4 space-y-2"><h3 className="font-display font-bold">Ostatnie działania moderacji</h3>{(data?.actions ?? []).map(a => <div key={a.id} className="text-sm border-b border-[var(--line)] py-2 last:border-0">{a.action} · {a.reason} <span className="text-xs text-[var(--muted)]">{new Date(a.createdAt).toLocaleString("pl-PL")}</span></div>)}{!data?.actions.length && <p className="text-sm text-[var(--muted)]">Brak zapisanych działań.</p>}</section>
   </div>;

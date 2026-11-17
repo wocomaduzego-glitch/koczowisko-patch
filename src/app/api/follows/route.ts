@@ -3,6 +3,8 @@ import { db } from "@/db";
 import { follows, users } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { currentUserId } from "@/lib/auth";
+import { createNotification } from "@/lib/notifications";
+import { syncAutomaticBadges } from "@/lib/badges";
 
 const OK = NextResponse.json;
 
@@ -24,7 +26,9 @@ export async function POST(req: Request) {
     } else {
       await db.insert(follows).values({ followerId: me, followeeId: userId });
       following = true;
+      await createNotification({ userId, actorId: me, type: "follow", title: "Nowy obserwujący", body: "Ktoś zaczął Cię obserwować.", href: "profile" });
     }
+    await syncAutomaticBadges(userId);
     return OK({ following });
   } catch (e) {
     console.error("[follows]", e);

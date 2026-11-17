@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { follows, playlists, tracks, users, playlistLikes, trackLikes, settings, friendRequests } from "@/db/schema";
-import { and, count, eq, or } from "drizzle-orm";
+import { follows, playlists, tracks, users, playlistLikes, trackLikes, settings, friendRequests, listeningPresence } from "@/db/schema";
+import { and, count, eq, gt, or } from "drizzle-orm";
 import { currentUserId, getUserByUsername, publicUser } from "@/lib/auth";
 import { fetchTracksWithNames, listTracks, playlistToApi } from "@/lib/api";
 import { badgesForUser } from "@/lib/badges";
@@ -33,6 +33,19 @@ export async function GET(_req: Request, { params }: Ctx) {
     const followedByMe = me
       ? (await db.select({ n: count() }).from(follows).where(and(eq(follows.followerId, me), eq(follows.followeeId, u.id))))[0]?.n
       : 0;
+
+    const presence = prefs.profileShowActivity === false ? [] : await db.select({
+      id: tracks.id,
+      title: tracks.title,
+      artist: tracks.artist,
+      cover: tracks.cover,
+      updatedAt: listeningPresence.updatedAt,
+    }).from(listeningPresence)
+      .innerJoin(tracks, eq(listeningPresence.trackId, tracks.id))
+      .where(and(
+        eq(listeningPresence.userId, u.id),
+        gt(listeningPresence.updatedAt, new Date(Date.now() - 120_000))
+      )).limit(1);
 
     const pls = await db
       .select()
@@ -77,7 +90,8 @@ export async function GET(_req: Request, { params }: Ctx) {
       playlists: plsApi,
       tracks: tracksApi,
       badges: await badgesForUser(u.id),
-      profileStyle: { theme: prefs.profileTheme ?? "paper", accent: prefs.profileAccent ?? "graphite", showActivity: prefs.profileShowActivity !== false },
+      profileStyle: { theme: prefs.profileTheme ?? "paper", accent: prefs.profileAccent ?? "graphite", showActivity: prefs.profileShowActivity !== false, banner: typeof prefs.profileBanner === "string" ? prefs.profileBanner : "" },
+      nowPlaying: presence[0] ? { id: presence[0].id, title: presence[0].title, artist: presence[0].artist, cover: presence[0].cover, updatedAt: presence[0].updatedAt.toISOString() } : null,
     });
   } catch (e) {
     console.error("[users:profile]", e);
