@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { playlists } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { currentUserId } from "@/lib/auth";
+import { requireCreatorAdmin } from "@/lib/permissions";
 import { playlistToApi } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -49,8 +50,12 @@ export async function DELETE(_req: Request, { params }: Ctx) {
     const me = await currentUserId();
     if (!me) return OK({ error: "Zaloguj się" }, { status: 401 });
     const { id } = await params;
-    const rows = await db.delete(playlists).where(and(eq(playlists.id, id), eq(playlists.ownerId, me))).returning({ id: playlists.id });
-    if (!rows.length) return OK({ error: "Brak uprawnień do usunięcia tej playlisty" }, { status: 403 });
+    const isAdmin = await requireCreatorAdmin(me);
+    const condition = isAdmin
+      ? eq(playlists.id, id)
+      : and(eq(playlists.id, id), eq(playlists.ownerId, me));
+    const rows = await db.delete(playlists).where(condition).returning({ id: playlists.id });
+    if (!rows.length) return OK({ error: "Brak uprawnień do usunięcia tej playlisty lub nie została znaleziona" }, { status: 403 });
     return OK({ ok: true });
   } catch (e) {
     console.error("[playlist:delete]", e);
